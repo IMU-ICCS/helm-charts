@@ -1,0 +1,235 @@
+#
+# Copyright (C) 2017-2026 Institute of Communication and Computer Systems (imu.iccs.gr)
+#
+# This Source Code Form is subject to the terms of the Mozilla Public License, v2.0, unless
+# Esper library is used, in which case it is subject to the terms of General Public License v2.0.
+# If a copy of the MPL was not distributed with this file, you can obtain one at
+# https://www.mozilla.org/en-US/MPL/2.0/
+#
+
+# Default values for ems-server.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+#  repository: "localhost:5000/emsserver"
+  repository: "ghcr.io/imu-iccs/ems-server-nebulous"
+#  pullPolicy: IfNotPresent
+#  pullPolicy: Always
+  # Overrides the image tag whose default is the chart appVersion.
+  pullPolicy: &image_pull_policy "Always"
+  tag: &image_tag "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+#  name: "ems-server-service-account"
+  name: "vault-serviceaccount"
+
+podAnnotations:
+  vault.hashicorp.com/agent-inject: "true"
+  vault.hashicorp.com/agent-inject-status: "update"
+  vault.hashicorp.com/agent-inject-secret-login: "secret/login"
+  vault.hashicorp.com/agent-inject-template-login: |
+    {{- with secret "secret/login" -}}
+    username={{ .Data.data.username }}
+    password={{ .Data.data.password }}
+    {{- end }}
+  vault.hashicorp.com/role: "vault-role"
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 8111
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 1
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+ports:
+  - name: http
+    containerPort: 8111
+    protocol: TCP
+  - name: openwire
+    containerPort: 61616
+    protocol: TCP
+  - name: openwire-tls
+    containerPort: 61617
+    protocol: TCP
+  - name: stomp
+    containerPort: 61610
+    protocol: TCP
+
+#
+# =====  Configuration passed at command line  =====
+# =====    (see also: deployment.yaml file)    =====
+#
+app_uuid: ''
+broker_address: ''
+broker_port: '5672'
+broker_username: ''
+broker_password: ''
+
+hostFiles:
+#  - enabled: true
+#    volumeName: host-share
+#    hostPath:
+#      path: /mnt/host                               # path inside Kind node (mounted dir)
+#      type: Directory
+#    mountPath: /opt/ems-server/models/model.yml     # mount point inside container
+#    subPath: model.yml                              # subPath for mounting a single file (optional)
+  - enabled: true
+    volumeName: host-share-2
+    hostPath:
+      path: /mnt/host                               # path inside Kind node (mounted dir)
+      type: Directory
+    mountPath: /opt/ems-server/models
+
+env:
+  #
+  # =====  Development and Debug settings  =====
+  #
+  #APPLICATION_ID: ""
+  #METRIC_MODEL_URL: "https://gitlab.com/nebulous-project/tests-new/-/raw/master/ems-at-nebulous/models/nebulous/test2.yml"
+  #EMS_PRELOAD_APP_MODEL: "test2.yml"
+
+  #
+  # =====  EMS server configuration  =====
+  #
+  # ===== INITIALIZATION settings =====
+  ENCRYPT_KEY: 'password'
+  NET_UTIL_ADDRESS_DISCOVERY_SERVICES: '-'
+  EMS_IP_SETTING: 'DEFAULT_IP'
+  #LOGGING_LEVEL_EU_NEBULOUS_EMS_TRANSLATE: 'TRACE'
+
+#  TRANSLATOR_EXTENSION_MODEL: 'extension.yml'
+
+  K8S_WATCHER_ENABLED: 'true'
+  EMS_LOG_REQUESTS: 'false'
+
+#  CONTROL_SKIP_METASOLVER: 'true'
+#  CONTROL_SKIP_NOTIFICATION: 'true'
+  CONTROL_EXIT_ALLOWED: 'true'
+  RESTART_EXIT_CODE: '99'
+
+  CONTROL_SSL_KEY_ENTRY_GENERATE: IF_IP_CHANGED
+#  CONTROL_SSL_KEYSTORE_FILE: /opt/ems-server/certs/ems-keystore.p12
+  CONTROL_SSL_KEYSTORE_PASSWORD: cipher
+#  CONTROL_SSL_TRUSTSTORE_FILE: /opt/ems-server/certs/common-truststore.p12
+  CONTROL_SSL_TRUSTSTORE_PASSWORD: cipher
+#  CONTROL_SSL_CERTIFICATE_FILE: /opt/ems-server/certs/ems.crt
+
+
+  # =====  Security and Authentication settings  =====
+  JWT_SECRET: 'ENC(I0mRWgH2FVDDNs4OBcdh7Z+o3lOQDa3ztaEtmnXT2HN0aClkChp/lqm9zM5HyTk0stJ7v2Di75U=)'
+  WEB_SECURITY_API_KEY_AUTHENTICATION_VALUE: '1234567890'
+  WEB_SECURITY_FORM_AUTHENTICATION_PASSWORD: 'ems'
+
+  # =====  EMS Boot (server) settings  =====
+  BOOT_ENABLED: 'false'
+
+  # =====  EMS Boot Initializer (client) settings  =====
+#  BOOT_INITIALIZER_ENABLED: 'true'
+
+  # =====  EMS-Nebulous K8S service settings  =====
+  K8S_DEPLOY_EMS_CLIENTS_ON_KUBERNETES_ENABLED: 'true'
+
+  # =====  External Broker settings  =====
+  #EXTERNAL_ENABLED: 'false'
+#  EXTERNAL_BROKER_ADDRESS: 'nebulous-activemq'
+#  EXTERNAL_BROKER_PORT: '5672'
+  #EXTERNAL_BROKER_USERNAME: ''
+  #EXTERNAL_BROKER_PASSWORD: ''
+
+  # =====  Broker settings  =====
+  BROKERCEP_ADDITIONAL_BROKER_CREDENTIALS: 'aaa/111, bbb/222'       # 'ENC(axeJUxNHajYfBffUwvuT3kwTgLTpRliDMz/ZQ9hROZ3BNOv0Idw72NJsawzIZRuZ)'
+  BROKERCEP_EVENT_RECORDER_ENABLED: 'false'
+  BROKERCEP_EVENT_RECORDER_FILTER_MODE: 'ALL'
+
+  # =====  Baguette Server settings  =====
+  BAGUETTE_SERVER_CREDENTIALS: '{ "aa":"xx" }'          # 'ENC(y46CiW6przlpXvz8ToE+T1Sn6uGfO2haP7OhATB0SXo=)'
+
+  #
+  # =====  EMS server K8sClientInstaller configuration  =====
+  #
+  EMS_CLIENT_DEPLOYMENT_DRY_RUN: "false"
+  K8S_SERVICE_ACCOUNT_SECRETS_PATH: "/var/run/secrets/kubernetes.io/serviceaccount"
+  APP_CONFIG_MAP_NAME: "monitoring-configmap"
+  EMS_CLIENT_CONFIG_MAP_NAME: "ems-client-configmap"
+  #EMS_CLIENT_DAEMONSET_SPECIFICATION_FILE: "/ems-client-daemonset.yaml"
+  EMS_CLIENT_DAEMONSET_NAME: "ems-client-daemonset"
+  #EMS_CLIENT_DAEMONSET_IMAGE_REPOSITORY: "localhost:5000/emsclient"
+  EMS_CLIENT_DAEMONSET_IMAGE_REPOSITORY: "ghcr.io/imu-iccs/ems-client"
+  #EMS_CLIENT_DAEMONSET_IMAGE_TAG: "latest"
+  EMS_CLIENT_DAEMONSET_IMAGE_TAG: *image_tag
+  #EMS_CLIENT_DAEMONSET_IMAGE_PULL_POLICY: : "IfNotPresent"
+  EMS_CLIENT_DAEMONSET_IMAGE_PULL_POLICY: *image_pull_policy
+
+  #EMS_CLIENT_LOG_LEVEL: "TRACE"
+  #EMS_CLIENT_LOGGING_LEVEL_GR_ICCS_IMU_EMS: "DEBUG"
+  #EMS_CLIENT_LOGGING_LEVEL_GR_ICCS_IMU_EMS_BAGUETTE: "TRACE"
+
+  # =====  EMS clients - Security and Authentication settings  =====
+  EMS_CLIENT_ADDITIONAL_BROKER_CREDENTIALS: 'aaa/111, bbb/222'
+#  EMS_CLIENT_ADDITIONAL_BROKER_CREDENTIALS: "ENC(axeJUxNHajYfBffUwvuT3kwTgLTpRliDMz/ZQ9hROZ3BNOv0Idw72NJsawzIZRuZ)"
+  #EMS_CLIENT_BROKER_USERNAME: "ccc"     # It is appended to EMS_CLIENT_ADDITIONAL_BROKER_CREDENTIALS
+  #EMS_CLIENT_BROKER_PASSWORD: "333"
+  EMS_CLIENT_KEYSTORE_SECRET: ""
+  EMS_CLIENT_TRUSTSTORE_SECRET: ""
