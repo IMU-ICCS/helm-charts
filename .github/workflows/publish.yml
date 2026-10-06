@@ -1,0 +1,120 @@
+name: Publish Helm chart
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  packages: write
+  pages: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      # --------------------------------------------------
+      # 1. Checkout repository
+      # --------------------------------------------------
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      # --------------------------------------------------
+      # 2. Install Helm
+      # --------------------------------------------------
+      - name: Setup Helm
+        uses: azure/setup-helm@v5
+
+      # --------------------------------------------------
+      # 3. Read chart version
+      # --------------------------------------------------
+      - name: Read chart metadata
+        id: chart
+        run: |
+          NAME=$(helm show chart charts/mychart | awk '$1 == "name:" {print $2}')
+          VERSION=$(helm show chart charts/mychart | awk '$1 == "version:" {print $2}')
+
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          echo "Chart: $NAME"
+          echo "Version: $VERSION"
+
+      # --------------------------------------------------
+      # 4. Lint chart
+      # --------------------------------------------------
+      - name: Lint chart
+        run: |
+          helm lint charts/mychart
+
+      # --------------------------------------------------
+      # 5. Package chart
+      # --------------------------------------------------
+      - name: Package chart
+        run: |
+          mkdir -p dist
+          helm package charts/mychart --destination dist
+
+      # --------------------------------------------------
+      # 6. Create classic Helm repository index
+      # --------------------------------------------------
+      - name: Create Helm repository index
+        run: |
+          helm repo index dist \
+            --url "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+
+      # --------------------------------------------------
+      # 7. Login to GitHub Container Registry
+      # --------------------------------------------------
+      - name: Login to GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" |
+            helm registry login ghcr.io \
+              --username "${{ github.actor }}" \
+              --password-stdin
+
+      # --------------------------------------------------
+      # 8. Push chart to OCI registry
+      # --------------------------------------------------
+      - name: Push chart to GHCR
+        run: |
+          helm push dist/*.tgz \
+            oci://ghcr.io/${{ github.repository_owner }}
+
+      # --------------------------------------------------
+      # 9. Configure GitHub Pages
+      # --------------------------------------------------
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      # --------------------------------------------------
+      # 10. Upload Helm repository as Pages artifact
+      # --------------------------------------------------
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: ./dist
+
+  # ------------------------------------------------------
+  # Deploy Pages artifact
+  # ------------------------------------------------------
+  deploy-pages:
+    needs: publish
+
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
