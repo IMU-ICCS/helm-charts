@@ -34,8 +34,8 @@ jobs:
       - name: Read chart metadata
         id: chart
         run: |
-          NAME=$(helm show chart charts/mychart | awk '$1 == "name:" {print $2}')
-          VERSION=$(helm show chart charts/mychart | awk '$1 == "version:" {print $2}')
+          NAME=$(helm show chart charts/ems-server | awk '$1 == "name:" {print $2}')
+          VERSION=$(helm show chart charts/ems-server | awk '$1 == "version:" {print $2}')
 
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -48,7 +48,7 @@ jobs:
       # --------------------------------------------------
       - name: Lint chart
         run: |
-          helm lint charts/mychart
+          helm lint charts/ems-server
 
       # --------------------------------------------------
       # 5. Package chart
@@ -56,7 +56,7 @@ jobs:
       - name: Package chart
         run: |
           mkdir -p dist
-          helm package charts/mychart --destination dist
+          helm package charts/ems-server --destination dist
 
       # --------------------------------------------------
       # 6. Create classic Helm repository index
