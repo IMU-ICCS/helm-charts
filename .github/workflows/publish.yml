@@ -166,6 +166,7 @@ jobs:
           set -euo pipefail
           
           GHCR_NAMESPACE="$(echo "$GHCR_NAMESPACE" | tr '[:upper:]' '[:lower:]')"
+          GHCR_NAMESPACE="imu-iccs"
           
           PACKAGE="dist/${CHART_NAME}-${CHART_VERSION}.tgz"
           
