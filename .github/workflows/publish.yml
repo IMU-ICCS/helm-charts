@@ -157,10 +157,24 @@ jobs:
       #
       # ------------------------------------------------------------
       - name: Push chart to GHCR
+        shell: bash
+        env:
+          GHCR_NAMESPACE: ${{ github.repository_owner }}
+          CHART_NAME: ${{ steps.metadata.outputs.chart_name }}
+          CHART_VERSION: ${{ steps.metadata.outputs.version }}
         run: |
+          set -euo pipefail
+          
+          GHCR_NAMESPACE="$(echo "$GHCR_NAMESPACE" | tr '[:upper:]' '[:lower:]')"
+          
+          PACKAGE="dist/${CHART_NAME}-${CHART_VERSION}.tgz"
+          
+          echo "Publishing $PACKAGE"
+          echo "Destination: oci://ghcr.io/$GHCR_NAMESPACE"
+          
           helm push \
-            dist/${{ steps.metadata.outputs.chart_name }}-${{ steps.metadata.outputs.version }}.tgz \
-            oci://ghcr.io/${{ github.repository_owner }}
+            "$PACKAGE" \
+            "oci://ghcr.io/$GHCR_NAMESPACE"
 
       # ------------------------------------------------------------
       # Download existing Helm repository from GitHub Pages
