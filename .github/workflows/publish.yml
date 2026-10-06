@@ -183,10 +183,10 @@ jobs:
 
       - name: Push chart to GHCR
         shell: bash
+        env:
+          GHCR_NAMESPACE: imu-iccs/charts
         run: |
           set -euo pipefail
-          
-          GHCR_NAMESPACE="imu-iccs"
           
           echo "GHCR namespace: $GHCR_NAMESPACE"
           
