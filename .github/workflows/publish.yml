@@ -2,8 +2,8 @@ name: Publish Helm chart
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - "*-v*"
 
 permissions:
   contents: read
@@ -13,62 +13,134 @@ permissions:
 
 jobs:
   publish:
+    name: Publish chart
     runs-on: ubuntu-latest
 
     steps:
-      # --------------------------------------------------
-      # 1. Checkout repository
-      # --------------------------------------------------
-      - name: Checkout
+      # ------------------------------------------------------------
+      # Checkout
+      # ------------------------------------------------------------
+      - name: Checkout repository
         uses: actions/checkout@v6
 
-      # --------------------------------------------------
-      # 2. Install Helm
-      # --------------------------------------------------
+      # ------------------------------------------------------------
+      # Setup Helm
+      # ------------------------------------------------------------
       - name: Setup Helm
         uses: azure/setup-helm@v5
 
-      # --------------------------------------------------
-      # 3. Read chart version
-      # --------------------------------------------------
-      - name: Read chart metadata
-        id: chart
+      # ------------------------------------------------------------
+      # Determine chart and version from Git tag
+      #
+      # Example:
+      #   app1-v1.2.0
+      #
+      # becomes:
+      #   chart   = app1
+      #   version = 1.2.0
+      # ------------------------------------------------------------
+      - name: Determine chart and version
+        id: metadata
+        shell: bash
         run: |
-          NAME=$(helm show chart charts/ems-server | awk '$1 == "name:" {print $2}')
-          VERSION=$(helm show chart charts/ems-server | awk '$1 == "version:" {print $2}')
+          set -euo pipefail
 
-          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          TAG="${GITHUB_REF_NAME}"
+
+          if [[ ! "$TAG" =~ ^(.+)-v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "Invalid tag: $TAG"
+            echo
+            echo "Expected format:"
+            echo "  <chart-name>-v<semver>"
+            echo
+            echo "Examples:"
+            echo "  app1-v1.2.0"
+            echo "  my-api-v2.0.1"
+            exit 1
+          fi
+
+          CHART_NAME="${BASH_REMATCH[1]}"
+          VERSION="${BASH_REMATCH[2]}"
+
+          CHART_DIR="charts/${CHART_NAME}"
+
+          if [[ ! -d "$CHART_DIR" ]]; then
+            echo "Chart directory does not exist:"
+            echo "  $CHART_DIR"
+            exit 1
+          fi
+
+          if [[ ! -f "$CHART_DIR/Chart.yaml" ]]; then
+            echo "Chart.yaml does not exist:"
+            echo "  $CHART_DIR/Chart.yaml"
+            exit 1
+          fi
+
+          echo "chart_name=$CHART_NAME" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "chart_dir=$CHART_DIR" >> "$GITHUB_OUTPUT"
 
-          echo "Chart: $NAME"
+          echo "Chart:   $CHART_NAME"
           echo "Version: $VERSION"
+          echo "Directory: $CHART_DIR"
 
-      # --------------------------------------------------
-      # 4. Lint chart
-      # --------------------------------------------------
+      # ------------------------------------------------------------
+      # Validate Chart.yaml
+      # ------------------------------------------------------------
+      - name: Validate chart metadata
+        shell: bash
+        env:
+          CHART_DIR: ${{ steps.metadata.outputs.chart_dir }}
+          EXPECTED_VERSION: ${{ steps.metadata.outputs.version }}
+          EXPECTED_NAME: ${{ steps.metadata.outputs.chart_name }}
+        run: |
+          set -euo pipefail
+
+          CHART_NAME="$(helm show chart "$CHART_DIR" | awk '$1 == "name:" {print $2}')"
+          CHART_VERSION="$(helm show chart "$CHART_DIR" | awk '$1 == "version:" {print $2}')"
+
+          echo "Chart.yaml name:    $CHART_NAME"
+          echo "Expected name:     $EXPECTED_NAME"
+          echo "Chart.yaml version: $CHART_VERSION"
+          echo "Expected version:  $EXPECTED_VERSION"
+
+          if [[ "$CHART_NAME" != "$EXPECTED_NAME" ]]; then
+            echo "ERROR: Chart name does not match directory/tag."
+            exit 1
+          fi
+
+          if [[ "$CHART_VERSION" != "$EXPECTED_VERSION" ]]; then
+            echo "ERROR: Chart version does not match Git tag."
+            echo
+            echo "Chart.yaml:"
+            echo "  version: $CHART_VERSION"
+            echo
+            echo "Git tag:"
+            echo "  $EXPECTED_VERSION"
+            exit 1
+          fi
+
+      # ------------------------------------------------------------
+      # Lint
+      # ------------------------------------------------------------
       - name: Lint chart
         run: |
-          helm lint charts/ems-server
+          helm lint "${{ steps.metadata.outputs.chart_dir }}"
 
-      # --------------------------------------------------
-      # 5. Package chart
-      # --------------------------------------------------
+      # ------------------------------------------------------------
+      # Package
+      # ------------------------------------------------------------
       - name: Package chart
         run: |
           mkdir -p dist
-          helm package charts/ems-server --destination dist
 
-      # --------------------------------------------------
-      # 6. Create classic Helm repository index
-      # --------------------------------------------------
-      - name: Create Helm repository index
-        run: |
-          helm repo index dist \
-            --url "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+          helm package \
+            "${{ steps.metadata.outputs.chart_dir }}" \
+            --destination dist
 
-      # --------------------------------------------------
-      # 7. Login to GitHub Container Registry
-      # --------------------------------------------------
+      # ------------------------------------------------------------
+      # Login to GHCR
+      # ------------------------------------------------------------
       - name: Login to GHCR
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" |
@@ -76,32 +148,92 @@ jobs:
               --username "${{ github.actor }}" \
               --password-stdin
 
-      # --------------------------------------------------
-      # 8. Push chart to OCI registry
-      # --------------------------------------------------
+      # ------------------------------------------------------------
+      # Push to GHCR as OCI artifact
+      #
+      # Result:
+      #
+      #   ghcr.io/myorg/app1:1.2.0
+      #
+      # ------------------------------------------------------------
       - name: Push chart to GHCR
         run: |
-          helm push dist/*.tgz \
+          helm push \
+            dist/${{ steps.metadata.outputs.chart_name }}-${{ steps.metadata.outputs.version }}.tgz \
             oci://ghcr.io/${{ github.repository_owner }}
 
-      # --------------------------------------------------
-      # 9. Configure GitHub Pages
-      # --------------------------------------------------
+      # ------------------------------------------------------------
+      # Download existing Helm repository from GitHub Pages
+      #
+      # We need to preserve previously published charts.
+      # ------------------------------------------------------------
+      - name: Download existing Helm repository
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p pages
+
+          URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+
+          echo "Trying to download existing index.yaml..."
+
+          if curl \
+              --fail \
+              --silent \
+              --show-error \
+              "$URL/index.yaml" \
+              -o pages/index.yaml; then
+
+            echo "Existing Helm repository found."
+
+          else
+
+            echo "No existing Helm repository found."
+            echo "Creating a new repository."
+
+            rm -f pages/index.yaml
+
+          fi
+
+      # ------------------------------------------------------------
+      # Copy packaged chart into Pages directory
+      # ------------------------------------------------------------
+      - name: Prepare GitHub Pages repository
+        run: |
+          cp dist/*.tgz pages/
+
+      # ------------------------------------------------------------
+      # Update Helm repository index
+      #
+      # Existing entries are preserved because index.yaml already
+      # contains previously published charts.
+      # ------------------------------------------------------------
+      - name: Update Helm repository index
+        run: |
+          helm repo index pages \
+            --url "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}" \
+            --merge pages/index.yaml
+
+      # ------------------------------------------------------------
+      # Setup GitHub Pages
+      # ------------------------------------------------------------
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      # --------------------------------------------------
-      # 10. Upload Helm repository as Pages artifact
-      # --------------------------------------------------
+      # ------------------------------------------------------------
+      # Upload Pages artifact
+      # ------------------------------------------------------------
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: ./dist
+          path: ./pages
 
-  # ------------------------------------------------------
-  # Deploy Pages artifact
-  # ------------------------------------------------------
-  deploy-pages:
+  # ----------------------------------------------------------------
+  # Deploy GitHub Pages
+  # ----------------------------------------------------------------
+  deploy:
+    name: Deploy GitHub Pages
     needs: publish
 
     permissions:
@@ -115,6 +247,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy to GitHub Pages
+      - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
