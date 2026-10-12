@@ -1,0 +1,161 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "netdata.fullname" . }}-child
+  labels:
+    app: netdata
+    chart: netdata-3.7.146
+    heritage: Helm
+    release: netdata
+    role: child
+  {{- include "netdata.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: netdata
+      release: netdata
+      role: child
+    {{- include "netdata.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: netdata
+        release: netdata
+        role: child
+      {{- include "netdata.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/config: bfb7bdcd0f5c1518a93bb509582b40919ca054cfd5a56a0cbd4f1425163b45d2
+        container.apparmor.security.beta.kubernetes.io/netdata: unconfined
+    spec:
+      containers:
+      - env:
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: MY_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: MY_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: NETDATA_LISTENER_PORT
+          value: {{ quote .Values.child.netdata.env.netdataListenerPort }}
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.child.netdata.image.repository }}:{{ .Values.child.netdata.image.tag
+          | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.child.netdata.imagePullPolicy }}
+        livenessProbe:
+          exec:
+            command:
+            - /usr/sbin/netdatacli
+            - ping
+          failureThreshold: 3
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 1
+        name: netdata
+        ports:
+        - containerPort: 19999
+          name: http
+          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - /usr/sbin/netdatacli
+            - ping
+          failureThreshold: 3
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources: {}
+        securityContext: {{- toYaml .Values.child.netdata.containerSecurityContext | nindent
+          10 }}
+        volumeMounts:
+        - mountPath: /host/proc
+          name: proc
+          readOnly: true
+        - mountPath: /host/sys
+          name: sys
+        - mountPath: /host/etc/os-release
+          name: os-release
+        - mountPath: /host/var/log
+          name: varlog
+        - mountPath: /etc/netdata/go.d.conf
+          name: configmap
+          subPath: go.d
+        - mountPath: /etc/netdata/go.d/k8s_kubelet.conf
+          name: configmap
+          subPath: kubelet
+        - mountPath: /etc/netdata/go.d/k8s_kubeproxy.conf
+          name: configmap
+          subPath: kubeproxy
+        - mountPath: /etc/netdata/netdata.conf
+          name: configmap
+          subPath: netdata
+        - mountPath: /etc/netdata/stream.conf
+          name: configmap
+          subPath: stream
+        - mountPath: /var/lib/netdata
+          name: persistencevarlibdir
+        - mountPath: /etc/netdata/go.d/sd/k8s.conf
+          name: sdconfigmap
+          subPath: config.yml
+      dnsPolicy: ClusterFirstWithHostNet
+      hostIPC: true
+      hostNetwork: true
+      hostPID: true
+      initContainers:
+      - args: {{- toYaml .Values.child.initPersistence.args | nindent 8 }}
+        command:
+        - /bin/sh
+        env:
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.child.initPersistence.image.repository }}:{{ .Values.child.initPersistence.image.tag
+          | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.child.initPersistence.imagePullPolicy }}
+        name: init-persistence
+        resources: {{- toYaml .Values.child.initPersistence.resources | nindent 10 }}
+        volumeMounts:
+        - mountPath: /persistencevarlibdir
+          name: persistencevarlibdir
+      nodeSelector: {{- toYaml .Values.child.nodeSelector | nindent 8 }}
+      restartPolicy: Always
+      serviceAccountName: {{ include "netdata.serviceAccountName" . }}
+      terminationGracePeriodSeconds: 30
+      tolerations: {{- toYaml .Values.child.tolerations | nindent 8 }}
+      topologySpreadConstraints: {{- toYaml .Values.child.topologySpreadConstraints | nindent
+        8 }}
+      volumes:
+      - hostPath:
+          path: /proc
+        name: proc
+      - hostPath:
+          path: /sys
+        name: sys
+      - hostPath:
+          path: /etc/os-release
+        name: os-release
+      - hostPath:
+          path: /var/log
+        name: varlog
+      - configMap:
+          name: {{ include "netdata.fullname" . }}-conf-child
+          optional: true
+        name: configmap
+      - name: configsecret
+        secret:
+          optional: true
+          secretName: {{ include "netdata.fullname" . }}-conf-child
+      - hostPath:
+          path: /var/lib/netdata-k8s-child/var/lib/netdata
+          type: DirectoryOrCreate
+        name: persistencevarlibdir
+      - configMap:
+          name: {{ include "netdata.fullname" . }}-child-sd-config-map
+          optional: true
+        name: sdconfigmap
