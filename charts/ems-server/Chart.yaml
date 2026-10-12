@@ -11,6 +11,11 @@ apiVersion: v2
 name: ems-server
 description: EMS server Helm chart for Kubernetes
 
+#dependencies:
+#  - name: netdata
+#    version: 0.1.0
+#    repository: oci://ghcr.io/imu-iccs/charts
+
 # A chart can be either an 'application' or a 'library' chart.
 #
 # Application charts are a collection of templates that can be packaged into versioned archives
