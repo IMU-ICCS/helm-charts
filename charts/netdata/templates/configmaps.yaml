@@ -4,7 +4,7 @@ metadata:
   name: {{ include "netdata.fullname" . }}-conf-child
   labels:
     app: netdata
-    chart: netdata-3.7.146
+    chart: netdata-3.7.176
     heritage: Helm
     release: netdata
   {{- include "netdata.labels" . | nindent 4 }}
@@ -21,7 +21,7 @@ metadata:
   name: {{ include "netdata.fullname" . }}-child-sd-config-map
   labels:
     app: netdata
-    chart: netdata-3.7.146
+    chart: netdata-3.7.176
     heritage: Helm
     release: netdata
   {{- include "netdata.labels" . | nindent 4 }}
