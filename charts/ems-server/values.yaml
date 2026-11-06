@@ -14,13 +14,15 @@
 replicaCount: 1
 
 image:
-#  repository: "localhost:5000/emsserver"
   repository: "ghcr.io/imu-iccs/ems-server-nebulous"
-#  pullPolicy: IfNotPresent
-#  pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
-  pullPolicy: &image_pull_policy "Always"
+  tag: "latest"
+  pullPolicy: "Always"
+
+client-image:
+  repository: &image_repo "ghcr.io/imu-iccs/ems-client-cipher"
   tag: &image_tag "latest"
+  pullPolicy: &image_pull_policy "Always"
 
 imagePullSecrets: []
 nameOverride: ""
@@ -216,10 +218,11 @@ env:
   #EMS_CLIENT_DAEMONSET_SPECIFICATION_FILE: "/ems-client-daemonset.yaml"
   EMS_CLIENT_DAEMONSET_NAME: "ems-client-daemonset"
   #EMS_CLIENT_DAEMONSET_IMAGE_REPOSITORY: "localhost:5000/emsclient"
-  EMS_CLIENT_DAEMONSET_IMAGE_REPOSITORY: "ghcr.io/imu-iccs/ems-client"
+  #EMS_CLIENT_DAEMONSET_IMAGE_REPOSITORY: "ghcr.io/imu-iccs/ems-client-cipher"
   #EMS_CLIENT_DAEMONSET_IMAGE_TAG: "latest"
-  EMS_CLIENT_DAEMONSET_IMAGE_TAG: *image_tag
   #EMS_CLIENT_DAEMONSET_IMAGE_PULL_POLICY: : "IfNotPresent"
+  EMS_CLIENT_DAEMONSET_IMAGE_REPOSITORY: *image_repo
+  EMS_CLIENT_DAEMONSET_IMAGE_TAG: *image_tag
   EMS_CLIENT_DAEMONSET_IMAGE_PULL_POLICY: *image_pull_policy
 
   #EMS_CLIENT_LOG_LEVEL: "TRACE"
