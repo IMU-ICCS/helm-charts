@@ -16,12 +16,12 @@ replicaCount: 1
 image:
   repository: "ghcr.io/imu-iccs/ems-server-nebulous"
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "latest"
+  tag: "1.1.0-snapshot"
   pullPolicy: "Always"
 
 client-image:
   repository: &image_repo "ghcr.io/imu-iccs/ems-client-cipher"
-  tag: &image_tag "latest"
+  tag: &image_tag "1.0.0-snapshot"
   pullPolicy: &image_pull_policy "Always"
 
 imagePullSecrets: []
