@@ -55,6 +55,7 @@ spec:
 #              value: demo-role
 #            - name: SPRING_CLOUD_VAULT_KV_ENABLED
 #              value: "true"
+            {{- if .Values.vault.enabled }}
             - name: SPRING_CLOUD_VAULT_URI
               value: http://vault:8200
             - name: SPRING_CLOUD_VAULT_AUTHENTICATION
@@ -63,6 +64,10 @@ spec:
               value: vault-role
             - name: SPRING_CLOUD_VAULT_KV_ENABLED
               value: "true"
+            {{- else }}
+            - name: SPRING_CLOUD_VAULT_ENABLED
+              value: "false"
+            {{- end }}
             #
             # EMS server configuration -- Environment variables from command line
             #
@@ -113,6 +118,11 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
+          {{- with .Values.existingSecret }}
+          envFrom:
+            - secretRef:
+                name: {{ . }}
+          {{- end }}
           ports:
             {{- range .Values.ports }}
             - name: {{ .name }}

@@ -36,18 +36,27 @@ serviceAccount:
   # The name of the service account to use.
   # If not set and create is true, a name is generated using the fullname template
 #  name: "ems-server-service-account"
-  name: "vault-serviceaccount"
+#  name: "vault-serviceaccount"
+  name: ""
 
-podAnnotations:
-  vault.hashicorp.com/agent-inject: "true"
-  vault.hashicorp.com/agent-inject-status: "update"
-  vault.hashicorp.com/agent-inject-secret-login: "secret/login"
-  vault.hashicorp.com/agent-inject-template-login: |
-    {{- with secret "secret/login" -}}
-    username={{ .Data.data.username }}
-    password={{ .Data.data.password }}
-    {{- end }}
-  vault.hashicorp.com/role: "vault-role"
+podAnnotations: {}
+
+#podAnnotations:
+#  vault.hashicorp.com/agent-inject: "true"
+#  vault.hashicorp.com/agent-inject-status: "update"
+#  vault.hashicorp.com/agent-inject-secret-login: "secret/login"
+#  vault.hashicorp.com/agent-inject-template-login: |
+#    {{- with secret "secret/login" -}}
+#    username={{ .Data.data.username }}
+#    password={{ .Data.data.password }}
+#    {{- end }}
+#  vault.hashicorp.com/role: "vault-role"
+
+vault:
+  enabled: false
+
+# Name of a Secret whose keys are loaded as environment variables
+existingSecret: ""
 
 podSecurityContext: {}
   # fsGroup: 2000
@@ -156,7 +165,7 @@ env:
   # =====  EMS server configuration  =====
   #
   # ===== INITIALIZATION settings =====
-  ENCRYPT_KEY: 'password'
+#-X  ENCRYPT_KEY: 'password'
   NET_UTIL_ADDRESS_DISCOVERY_SERVICES: '-'
   EMS_IP_SETTING: 'DEFAULT_IP'
   #LOGGING_LEVEL_EU_NEBULOUS_EMS_TRANSLATE: 'TRACE'
@@ -173,16 +182,16 @@ env:
 
   CONTROL_SSL_KEY_ENTRY_GENERATE: IF_IP_CHANGED
 #  CONTROL_SSL_KEYSTORE_FILE: /opt/ems-server/certs/ems-keystore.p12
-  CONTROL_SSL_KEYSTORE_PASSWORD: cipher
+#-X  CONTROL_SSL_KEYSTORE_PASSWORD: cipher
 #  CONTROL_SSL_TRUSTSTORE_FILE: /opt/ems-server/certs/common-truststore.p12
-  CONTROL_SSL_TRUSTSTORE_PASSWORD: cipher
+#-X  CONTROL_SSL_TRUSTSTORE_PASSWORD: cipher
 #  CONTROL_SSL_CERTIFICATE_FILE: /opt/ems-server/certs/ems.crt
 
 
   # =====  Security and Authentication settings  =====
-  JWT_SECRET: 'ENC(I0mRWgH2FVDDNs4OBcdh7Z+o3lOQDa3ztaEtmnXT2HN0aClkChp/lqm9zM5HyTk0stJ7v2Di75U=)'
-  WEB_SECURITY_API_KEY_AUTHENTICATION_VALUE: '1234567890'
-  WEB_SECURITY_FORM_AUTHENTICATION_PASSWORD: 'ems'
+#-X  JWT_SECRET: 'ENC(I0mRWgH2FVDDNs4OBcdh7Z+o3lOQDa3ztaEtmnXT2HN0aClkChp/lqm9zM5HyTk0stJ7v2Di75U=)'
+#-X  WEB_SECURITY_API_KEY_AUTHENTICATION_VALUE: '1234567890'
+#-X  WEB_SECURITY_FORM_AUTHENTICATION_PASSWORD: 'ems'
 
   # =====  EMS Boot (server) settings  =====
   BOOT_ENABLED: 'false'
@@ -201,12 +210,12 @@ env:
   #EXTERNAL_BROKER_PASSWORD: ''
 
   # =====  Broker settings  =====
-  BROKERCEP_ADDITIONAL_BROKER_CREDENTIALS: 'aaa/111, bbb/222'       # 'ENC(axeJUxNHajYfBffUwvuT3kwTgLTpRliDMz/ZQ9hROZ3BNOv0Idw72NJsawzIZRuZ)'
+#-X  BROKERCEP_ADDITIONAL_BROKER_CREDENTIALS: 'aaa/111, bbb/222'       # 'ENC(axeJUxNHajYfBffUwvuT3kwTgLTpRliDMz/ZQ9hROZ3BNOv0Idw72NJsawzIZRuZ)'
   BROKERCEP_EVENT_RECORDER_ENABLED: 'false'
   BROKERCEP_EVENT_RECORDER_FILTER_MODE: 'ALL'
 
   # =====  Baguette Server settings  =====
-  BAGUETTE_SERVER_CREDENTIALS: '{ "aa":"xx" }'          # 'ENC(y46CiW6przlpXvz8ToE+T1Sn6uGfO2haP7OhATB0SXo=)'
+#-X  BAGUETTE_SERVER_CREDENTIALS: '{ "aa":"xx" }'          # 'ENC(y46CiW6przlpXvz8ToE+T1Sn6uGfO2haP7OhATB0SXo=)'
 
   #
   # =====  EMS server K8sClientInstaller configuration  =====
@@ -230,7 +239,7 @@ env:
   #EMS_CLIENT_LOGGING_LEVEL_GR_ICCS_IMU_EMS_BAGUETTE: "TRACE"
 
   # =====  EMS clients - Security and Authentication settings  =====
-  EMS_CLIENT_ADDITIONAL_BROKER_CREDENTIALS: 'aaa/111, bbb/222'
+#-X  EMS_CLIENT_ADDITIONAL_BROKER_CREDENTIALS: 'aaa/111, bbb/222'
 #  EMS_CLIENT_ADDITIONAL_BROKER_CREDENTIALS: "ENC(axeJUxNHajYfBffUwvuT3kwTgLTpRliDMz/ZQ9hROZ3BNOv0Idw72NJsawzIZRuZ)"
   #EMS_CLIENT_BROKER_USERNAME: "ccc"     # It is appended to EMS_CLIENT_ADDITIONAL_BROKER_CREDENTIALS
   #EMS_CLIENT_BROKER_PASSWORD: "333"
